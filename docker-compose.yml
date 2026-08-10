@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  backend:
+    build: ./
+    container_name: tiktok-backend
+    volumes:
+      - ./data:/TiktokSparkFlow/data
+      - ./logs:/TiktokSparkFlow/logs
+    ports:
+      - "8080:8080"
+      - "5900:5900"
+
+  # 前端不需要单独服务 直接让 Nginx托管静态文件
+  frontend:
+    build: ./frontend
+    container_name: tiktok-frontend
+    ports:
+      - "80:80"
+    # 将本地的Nginx配置挂载到容器的Nginx配置中,不然还得进容器内修改配置文件
+    depends_on:
+      - backend

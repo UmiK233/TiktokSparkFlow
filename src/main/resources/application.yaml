@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: TiktokSparkFlow
+
+logging:
+  file:
+    name: logs/tiktok-sparkflow.log
+  level:
+    com.umik.tiktoksparkflow: INFO
+
+tiktok:
+  sender:
+    profile-dir: data/single-user-profile
+    friend-list-file: data/friends.json
+    friend-selection-file: data/friend-selection.json
+    send-task-dir: data/send-tasks
+    send-history-dir: data/send-history
+    runtime-settings-file: data/runtime-settings.json
+    time-zone: GMT+8
+    default-timeout: 30s
+    navigation-timeout: 120s
+    login-timeout: 5m
+    authentication-check-timeout: 10s
+    friend-scan-timeout: 3m
+    visible-confirmation-timeout: 10s
+    bulk-send-interval: 1s
