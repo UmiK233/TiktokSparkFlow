@@ -16,6 +16,8 @@ import com.umik.tiktoksparkflow.enums.SendTaskStatus;
 import com.umik.tiktoksparkflow.exception.LoginRequiredException;
 import com.umik.tiktoksparkflow.exception.RiskVerificationRequiredException;
 import com.umik.tiktoksparkflow.mapper.FriendSelectionMapper;
+import com.umik.tiktoksparkflow.mapper.FriendListMapper;
+import com.umik.tiktoksparkflow.enums.ConversationType;
 import com.umik.tiktoksparkflow.mapper.SendHistoryMapper;
 import com.umik.tiktoksparkflow.service.SendTaskService;
 import com.umik.tiktoksparkflow.service.RuntimeSettingsService;
@@ -50,6 +52,7 @@ public class SendTaskServiceImpl implements SendTaskService, DisposableBean {
     private final SingleUserProfileGuard profileGuard;
     private final BrowserRuntime browserRuntime;
     private final FriendSelectionMapper selectionMapper;
+    private final FriendListMapper friendListMapper;
     private final SendTaskMapper taskMapper;
     private final SendHistoryMapper historyMapper;
     private final RuntimeSettingsService runtimeSettingsService;
@@ -68,6 +71,7 @@ public class SendTaskServiceImpl implements SendTaskService, DisposableBean {
             SingleUserProfileGuard profileGuard,
             BrowserRuntime browserRuntime,
             FriendSelectionMapper selectionMapper,
+            FriendListMapper friendListMapper,
             SendTaskMapper taskMapper,
             SendHistoryMapper historyMapper,
             RuntimeSettingsService runtimeSettingsService,
@@ -78,6 +82,7 @@ public class SendTaskServiceImpl implements SendTaskService, DisposableBean {
         this.profileGuard = profileGuard;
         this.browserRuntime = browserRuntime;
         this.selectionMapper = selectionMapper;
+        this.friendListMapper = friendListMapper;
         this.taskMapper = taskMapper;
         this.historyMapper = historyMapper;
         this.runtimeSettingsService = runtimeSettingsService;
@@ -107,7 +112,7 @@ public class SendTaskServiceImpl implements SendTaskService, DisposableBean {
 
     @Override
     public SendTaskVO create(BulkSendCommand command) {
-        List<String> targets = selectionMapper.load().selectedFriends();
+        List<String> targets = orderByConversationType(selectionMapper.load().selectedFriends());
         if (targets.isEmpty()) {
             throw new IllegalArgumentException("尚未配置需要处理的好友");
         }
@@ -281,10 +286,24 @@ public class SendTaskServiceImpl implements SendTaskService, DisposableBean {
                 TiktokCreatorClient creator = new TiktokCreatorClient(
                         page, configuration, receiptParser);
                 creator.requireAuthentication();
-                creator.selectFriend(target);
+                creator.selectFriend(target, conversationTypeOf(target));
                 return sendMessage ? creator.sendAndConfirm(message) : null;
             });
         }
+    }
+
+    private List<String> orderByConversationType(List<String> targets) {
+        return targets.stream()
+                .sorted(Comparator.comparingInt(target -> conversationTypeOrder(conversationTypeOf(target))))
+                .toList();
+    }
+
+    private ConversationType conversationTypeOf(String target) {
+        return friendListMapper.load().conversationTypes().getOrDefault(target, ConversationType.FRIEND);
+    }
+
+    private int conversationTypeOrder(ConversationType type) {
+        return type == ConversationType.FRIEND ? 0 : 1;
     }
 
     private boolean waitForLogin() {

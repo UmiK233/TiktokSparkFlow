@@ -11,6 +11,7 @@ import com.umik.tiktoksparkflow.enums.SendTaskItemStatus;
 import com.umik.tiktoksparkflow.enums.SendTaskStatus;
 import com.umik.tiktoksparkflow.exception.LoginRequiredException;
 import com.umik.tiktoksparkflow.mapper.FriendSelectionMapper;
+import com.umik.tiktoksparkflow.mapper.FriendListMapper;
 import com.umik.tiktoksparkflow.mapper.SendHistoryMapper;
 import com.umik.tiktoksparkflow.mapper.SendTaskMapper;
 import com.umik.tiktoksparkflow.service.impl.SendTaskServiceImpl;
@@ -157,12 +158,15 @@ class SendTaskServiceImplTest {
     ) {
         TiktokSenderConfiguration configuration = new TiktokSenderConfiguration();
         configuration.setBulkSendInterval(Duration.ofMillis(1));
+        FriendListMapper friendListMapper = mock(FriendListMapper.class);
+        when(friendListMapper.load()).thenReturn(com.umik.tiktoksparkflow.entity.FriendListEntity.empty());
         return new SendTaskServiceImpl(
                 configuration,
                 new SendReceiptParser(),
                 new SingleUserProfileGuard(),
                 browserRuntime,
                 selectionMapper,
+                friendListMapper,
                 taskMapper,
                 historyMapper,
                 runtimeSettingsService,

@@ -29,7 +29,8 @@ class FriendServiceImplTest {
         FriendSelectionMapper selectionMapper = mock(FriendSelectionMapper.class);
         when(browserRuntime.execute(any())).thenReturn(new FriendListSnapshot(
                 List.of("星火", "南."),
-                java.util.Map.of("星火", "https://example.com/avatar.png")));
+                java.util.Map.of("星火", "https://example.com/avatar.png"),
+                java.util.Map.of()));
         when(friendListMapper.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(selectionMapper.load()).thenReturn(
                 new FriendSelectionEntity(List.of("南.")));

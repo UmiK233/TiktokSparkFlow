@@ -2,6 +2,7 @@ package com.umik.tiktoksparkflow.browser;
 
 import com.umik.tiktoksparkflow.config.TiktokSenderConfiguration;
 import com.umik.tiktoksparkflow.enums.LoginStatus;
+import com.umik.tiktoksparkflow.enums.ConversationType;
 import com.umik.tiktoksparkflow.vo.SendReceiptVO;
 import com.umik.tiktoksparkflow.vo.LoginQrVO;
 import com.umik.tiktoksparkflow.exception.LoginRequiredException;
@@ -51,6 +52,8 @@ public final class TiktokCreatorClient {
             "[class*='qr-code'] svg");
     private static final int FRIEND_LIST_IDLE_ROUNDS = 5;
     private static final int FRIEND_LIST_STUCK_ROUNDS = 2;
+    // 聊天首页在 DOMContentLoaded 后还会异步挂载二级标签，不能只等待一次固定延时。
+    private static final Duration CONVERSATION_TAB_READY_TIMEOUT = Duration.ofSeconds(15);
 
     private final Page page;
     private final TiktokSenderConfiguration properties;
@@ -296,20 +299,39 @@ public final class TiktokCreatorClient {
 
     public void selectFriend(String targetNickname) {
         requireNoRiskVerification();
-        if (selectTargetInTab(targetNickname, "朋友私信")
-                || selectTargetInTab(targetNickname, "群消息")) {
-            return;
+        // 发送上一个目标后页面会停留在该会话，不能依据当前列表推断标签页。
+        for (String tabText : List.of("朋友私信", "群消息")) {
+            if (selectTargetInTab(targetNickname, tabText)) {
+                return;
+            }
         }
         throw new IllegalStateException("未在“朋友私信”或“群消息”中找到目标：" + targetNickname);
     }
 
+    /** 已同步过的会话携带类型时，只扫描其所属标签。 */
+    public void selectFriend(String targetNickname, ConversationType conversationType) {
+        requireNoRiskVerification();
+        if (!selectTargetInTab(targetNickname, conversationType.tabText(), false)) {
+            throw new IllegalStateException("未在“" + conversationType.tabText() + "”中找到目标：" + targetNickname);
+        }
+    }
+
     private boolean selectTargetInTab(String targetNickname, String tabText) {
+        return selectTargetInTab(targetNickname, tabText, true);
+    }
+
+    private boolean selectTargetInTab(String targetNickname, String tabText, boolean resetToChatHome) {
         try {
-            // 好友列表已展示时无需再次点击当前标签；部分页面版本不会将活动标签
-            // 暴露为可由 getByText 定位的节点。
-            if (!("朋友私信".equals(tabText) && firstFriendEntryVisible())) {
-                openConversationTab(tabText);
+            // 进入某个会话后，抖音会把左侧栏替换为该会话上下文中的精简列表。
+            // 先回到聊天首页，再打开目标标签，避免把上一次会话的列表当作新标签列表。
+            if (resetToChatHome) {
+                navigateToChat();
+                page.waitForTimeout(800);
             }
+            openConversationTab(tabText);
+            // “朋友私信”和“群消息”是两次相互独立的查找；本标签完整扫描未命中后，
+            // 外层会重新回到首页，再从另一个标签开始扫描。
+            page.waitForTimeout(800);
             if (!waitForConversationListReady(Duration.ofSeconds(60))) {
                 return false;
             }
@@ -357,19 +379,21 @@ public final class TiktokCreatorClient {
     public FriendListSnapshot listFriendsWithAvatars() {
         LinkedHashSet<String> friends = new LinkedHashSet<>();
         java.util.LinkedHashMap<String, String> avatars = new java.util.LinkedHashMap<>();
-        collectFriends(friends, avatars);
-        return new FriendListSnapshot(List.copyOf(friends), avatars);
+        java.util.LinkedHashMap<String, ConversationType> conversationTypes = new java.util.LinkedHashMap<>();
+        collectFriends(friends, avatars, conversationTypes);
+        return new FriendListSnapshot(List.copyOf(friends), avatars, conversationTypes);
     }
 
     private void collectFriends(
             LinkedHashSet<String> friends,
-            java.util.Map<String, String> avatars
+            java.util.Map<String, String> avatars,
+            java.util.Map<String, ConversationType> conversationTypes
     ) {
-        // 聊天页默认已展示朋友私信列表时，活动标签可能无法通过文本 locator 再次定位。
-        // 此时直接读取当前列表即可。
-        if (!firstFriendEntryVisible()) {
-            openConversationTab("朋友私信");
-        }
+        // 聊天页首次进入时默认是“全部”列表，其中同时含有好友和群聊；
+        // 不能因为已有会话项就把当前列表直接当作“朋友私信”。
+        // 每次同步均从聊天首页显式切换到朋友私信，确保类型不会被错误标记。
+        navigateToChat();
+        openConversationTab(ConversationType.FRIEND.tabText());
         if (!waitForConversationListReady(Duration.ofSeconds(60))) {
             throw new IllegalStateException("“朋友私信”在 60 秒内没有加载完成");
         }
@@ -386,6 +410,7 @@ public final class TiktokCreatorClient {
                 String name = friendName(entry);
                 if (!name.isBlank()) {
                     friends.add(name);
+                    conversationTypes.putIfAbsent(name, ConversationType.FRIEND);
                     String avatarUrl = friendAvatar(entry);
                     if (!avatarUrl.isBlank()) {
                         avatars.put(name, avatarUrl);
@@ -420,6 +445,43 @@ public final class TiktokCreatorClient {
 
         if (friends.isEmpty()) {
             throw new IllegalStateException("朋友私信列表为空或网页结构已经更新");
+        }
+        collectGroupConversations(friends, avatars, conversationTypes);
+    }
+
+    private void collectGroupConversations(
+            LinkedHashSet<String> conversations,
+            java.util.Map<String, String> avatars,
+            java.util.Map<String, ConversationType> conversationTypes
+    ) {
+        navigateToChat();
+        // 页面导航完成不代表“朋友私信 / 群消息”二级标签已渲染；
+        // openConversationTab 会轮询至标签实际可点击，避免同步好友后立即失败。
+        openConversationTab(ConversationType.GROUP.tabText());
+        page.waitForTimeout(800);
+        if (!waitForConversationListReady(Duration.ofSeconds(20))) return;
+        resetFriendListToTop();
+        long deadline = System.nanoTime() + properties.getFriendScanTimeout().toNanos();
+        int idleRounds = 0;
+        while (System.nanoTime() < deadline) {
+            Locator entries = friendEntries();
+            int sizeBefore = conversations.size();
+            for (int index = 0; index < entries.count(); index++) {
+                Locator entry = entries.nth(index);
+                String name = friendName(entry);
+                if (!name.isBlank()) {
+                    conversations.add(name);
+                    conversationTypes.putIfAbsent(name, ConversationType.GROUP);
+                    String avatarUrl = friendAvatar(entry);
+                    if (!avatarUrl.isBlank()) avatars.put(name, avatarUrl);
+                }
+            }
+            if (friendListEndVisible()) break;
+            FriendListScrollState scrollState = scrollFriendListWithState();
+            if (!scrollState.containerFound() || !scrollState.moved()) break;
+            idleRounds = conversations.size() > sizeBefore ? 0 : idleRounds + 1;
+            if (idleRounds >= FRIEND_LIST_IDLE_ROUNDS) break;
+            page.waitForTimeout(1200);
         }
     }
 
@@ -462,14 +524,29 @@ public final class TiktokCreatorClient {
     }
 
     private void openConversationTab(String tabText) {
+        long deadline = System.nanoTime() + CONVERSATION_TAB_READY_TIMEOUT.toNanos();
+        while (System.nanoTime() < deadline) {
+            if (tryOpenConversationTab(tabText)) {
+                return;
+            }
+            page.waitForTimeout(300);
+        }
+        throw new IllegalStateException("找不到“" + tabText
+                + "”标签页，可能是抖音网页结构已更新或页面尚未加载完成");
+    }
+
+    private boolean tryOpenConversationTab(String tabText) {
         for (boolean exact : List.of(true, false)) {
             try {
                 Locator candidate = page.getByText(
                         tabText, new Page.GetByTextOptions().setExact(exact));
-                if (candidate.count() > 0 && candidate.first().isVisible()) {
-                    candidate.first().click();
-                    page.waitForTimeout(600);
-                    return;
+                for (int index = 0; index < candidate.count(); index++) {
+                    Locator tab = candidate.nth(index);
+                    if (tab.isVisible()) {
+                        tab.click();
+                        page.waitForTimeout(600);
+                        return true;
+                    }
                 }
             } catch (RuntimeException ignored) {
                 // 当前定位方式不可用，继续尝试备用定位方式。
@@ -481,14 +558,13 @@ public final class TiktokCreatorClient {
                 if (fallback.count() > 0 && fallback.first().isVisible()) {
                     fallback.first().click();
                     page.waitForTimeout(600);
-                    return;
+                    return true;
                 }
             } catch (RuntimeException ignored) {
                 // 旧版网页结构兜底失败后使用统一异常提示。
             }
         }
-        throw new IllegalStateException("找不到“" + tabText
-                + "”标签页，可能是抖音网页结构已更新");
+        return false;
     }
 
     private boolean firstFriendEntryVisible() {

@@ -62,6 +62,7 @@ public class FriendServiceImpl implements FriendService {
         FriendListEntity saved = friendListMapper.save(new FriendListEntity(
                 friends.friends(),
                 friends.avatars(),
+                friends.conversationTypes(),
                 Gmt8Time.now()));
         return toVO(saved);
     }
@@ -86,6 +87,7 @@ public class FriendServiceImpl implements FriendService {
         return new FriendListVO(
                 friendList.friends(),
                 friendList.avatars(),
+                friendList.conversationTypes(),
                 selectionMapper.load().selectedFriends(),
                 Gmt8Time.normalize(friendList.refreshedAt()));
     }

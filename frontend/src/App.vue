@@ -21,6 +21,7 @@ const login = ref({ status: 'NOT_INITIALIZED', detail: '正在检查本地浏览
 const qrImage = ref('')
 const friends = ref([])
 const avatarUrls = ref({})
+const conversationTypes = ref({})
 const selectedFriends = ref([])
 const persistedSelectedFriends = ref([])
 const refreshedAt = ref('')
@@ -205,6 +206,7 @@ async function loadCachedFriends() {
 function applyFriends(data) {
   friends.value = data.friends ?? []
   avatarUrls.value = data.avatars ?? {}
+  conversationTypes.value = data.conversationTypes ?? {}
   selectedFriends.value = data.selectedFriends ?? []
   persistedSelectedFriends.value = [...selectedFriends.value]
   refreshedAt.value = data.refreshedAt ?? ''
@@ -406,6 +408,14 @@ async function saveRuntimeSettings() {
   }
 }
 
+function conversationTypeLabel(name) {
+  return conversationTypes.value[name] === 'GROUP' ? '群聊' : '好友'
+}
+
+function conversationTypeTag(name) {
+  return conversationTypes.value[name] === 'GROUP' ? 'warning' : 'info'
+}
+
 async function sendTestEmail() {
   sendingTestEmail.value = true
   try {
@@ -545,7 +555,7 @@ onBeforeUnmount(() => {
                 <div v-for="name in filteredFriends" :key="name" class="friend-row">
                   <el-avatar v-if="avatarUrls[name]" :src="avatarUrls[name]" class="friend-avatar" />
                   <div v-else class="friend-avatar">{{ name.slice(0, 1) }}</div>
-                  <span>{{ name }}</span>
+                  <span>{{ name }}</span><el-tag size="small" :type="conversationTypeTag(name)" effect="plain">{{ conversationTypeLabel(name) }}</el-tag>
                   <div class="friend-row-actions">
                     <el-button link type="primary" @click="openIndividualSend(name)">单独发送</el-button>
                     <el-checkbox :model-value="isSelected(name)" @change="toggleFriend(name, $event)">续火花</el-checkbox>
@@ -566,7 +576,7 @@ onBeforeUnmount(() => {
                   <div v-for="name in selectedFriends" :key="name" class="selected-friend">
                     <el-avatar v-if="avatarUrls[name]" :src="avatarUrls[name]" class="selected-avatar" />
                     <span v-else class="selected-avatar">{{ name.slice(0, 1) }}</span>
-                    <span>{{ name }}</span>
+                    <span>{{ name }}</span><el-tag size="small" :type="conversationTypeTag(name)" effect="plain">{{ conversationTypeLabel(name) }}</el-tag>
                     <button type="button" class="remove-mark" :title="`移除 ${name}`" @click="toggleFriend(name, false)"><el-icon><Close /></el-icon></button>
                   </div>
                 </div>

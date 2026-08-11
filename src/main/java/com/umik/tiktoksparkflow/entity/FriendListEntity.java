@@ -3,26 +3,29 @@ package com.umik.tiktoksparkflow.entity;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.umik.tiktoksparkflow.enums.ConversationType;
 
 /** 本地保存的最近一次完整好友列表。 */
 public record FriendListEntity(
         List<String> friends,
         Map<String, String> avatars,
+        Map<String, ConversationType> conversationTypes,
         String refreshedAt
 ) {
     public FriendListEntity {
         friends = friends == null ? List.of() : List.copyOf(friends);
         avatars = normalizeAvatars(avatars);
+        conversationTypes = conversationTypes == null ? Map.of() : Map.copyOf(conversationTypes);
         refreshedAt = refreshedAt == null ? "" : refreshedAt;
     }
 
     /** 兼容旧版仅保存昵称列表的缓存文件。 */
     public FriendListEntity(List<String> friends, String refreshedAt) {
-        this(friends, Map.of(), refreshedAt);
+        this(friends, Map.of(), Map.of(), refreshedAt);
     }
 
     public static FriendListEntity empty() {
-        return new FriendListEntity(List.of(), Map.of(), "");
+        return new FriendListEntity(List.of(), Map.of(), Map.of(), "");
     }
 
     private static Map<String, String> normalizeAvatars(Map<String, String> avatars) {
