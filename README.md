@@ -19,6 +19,9 @@
 - 前端：Vue 3、Vite、Element Plus
 - 部署：Docker Compose、Nginx、Xvfb、noVNC
 
+## 注意
+### 本项目未设置VNC密码和实现后端接口鉴权，请不要暴露5900端/8080端口到公网，避免被恶意访问。
+
 ## 快速开始（Docker，推荐）
 
 ### 前置条件
@@ -49,7 +52,6 @@ docker compose up -d --build
 | 地址 | 用途 |
 | --- | --- |
 | http://localhost | Web 管理界面 |
-| http://localhost:8080 | 后端 API |
 
 首次使用时，在管理界面扫描二维码登录；随后同步好友、勾选续火花名单，并按需创建发送任务或设置每日计划。
 
