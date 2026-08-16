@@ -20,7 +20,7 @@
 - 部署：Docker Compose、Nginx、Xvfb、noVNC
 
 ## 注意
-### 本项目未设置VNC密码和实现后端接口鉴权，请不要暴露5900端/8080端口到公网，避免被恶意访问。
+>本项目未设置VNC密码和实现后端接口鉴权，如有暴露5900端/8080端口到本地的需求，请避免暴露到公网被恶意访问。
 
 ## 快速开始（Docker，推荐）
 
@@ -70,24 +70,26 @@ docker compose down
 ## 本地开发
 
 ### 后端
-
-需要 Java 17。Windows 下执行：
+为控制发布JAR的体积，项目默认不打包 Playwright 的完整 driver bundle  Docker 构建时仅下载并使用当前平台所需的
+driver  
+本地开发运行时请使用 `-Plocal-playwright` 启用完整 driver bundle，避免出现 driver 缺失错误  
+Windows 下执行：
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run -Plocal-playwright
 ```
 
 macOS / Linux 下执行：
 
 ```bash
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Plocal-playwright
 ```
-若修改本地代码，需要重新构建后端 JAR 包再进行部署，执行如下命令:
+若开发调试后修改本地代码，需要重新构建后端 JAR 包再进行 docker 部署以应用改变，执行如下命令:
 ```bash
 ./mvnw clean package -DskipTests
 ```
 
-后端默认运行在 `http://localhost:8080`。在 Linux 的有头模式下可通过VNC链接5900端口查看调试
+后端默认运行在 `http://localhost:8080`。在有头模式下可在docker-compose.yml中暴露5900端口并通过VNC链接到5900端口查看调试
 
 ### 前端
 
@@ -100,6 +102,11 @@ npm run dev
 ```
 
 打开 Vite 输出的地址（默认 `http://localhost:5173`）。开发服务器会将 `/api` 请求转发到 `http://localhost:8080`。
+
+### 浏览器画面查看方式
+
+- Docker 部署时，Playwright 运行在 Xvfb 虚拟显示器中；可通过 Web 界面的“浏览器监控”使用 noVNC 查看和操作画面。
+- 本地开发时，Playwright 会直接打开本机 Chromium 窗口；请直接查看该窗口。“浏览器监控”依赖 Docker 中的 noVNC 服务，本地 Vite 开发服务器不提供此功能。
 
 ## 使用流程
 

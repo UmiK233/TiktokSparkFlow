@@ -91,6 +91,24 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>local-playwright</id>
+            <dependencies>
+                <!--
+                  仅用于本地 Maven 启动。driver-bundle 体积较大，不能进入发布 JAR；
+                  Docker 镜像会在构建阶段下载并解压对应平台的 driver。
+                -->
+                <dependency>
+                    <groupId>com.microsoft.playwright</groupId>
+                    <artifactId>driver-bundle</artifactId>
+                    <version>1.56.0</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+
     <build>
         <plugins>
             <plugin>
