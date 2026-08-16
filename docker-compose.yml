@@ -5,9 +5,10 @@ services:
     volumes:
       - ./data:/TiktokSparkFlow/data
       - ./logs:/TiktokSparkFlow/logs
-    ports:
-      - "8080:8080"
-      - "5900:5900"
+  # 后端服务不需要对外暴露端口,如有需求可打开
+    # ports:
+    # - "8080:8080"
+    # - "5900:5900"
 
   # 前端不需要单独服务 直接让 Nginx托管静态文件
   frontend:

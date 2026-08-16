@@ -62,7 +62,6 @@ const sendingTestEmail = ref(false)
 let statusTimer
 let qrTimer
 let qrRequestPending = false
-let taskTimer
 const notifiedVerificationTasks = new Set()
 let verificationNoticeShown = false
 
@@ -434,13 +433,11 @@ function taskType(status) {
 
 onMounted(async () => {
   await refreshLoginStatus()
-  taskTimer = window.setInterval(loadTasks, 3000)
   if (phase.value === 'login') startLoginPolling()
 })
 
 onBeforeUnmount(() => {
   stopLoginPolling()
-  window.clearInterval(taskTimer)
 })
 </script>
 
