@@ -8,6 +8,7 @@ public record RuntimeSettingsEntity(
         boolean sendMessage,
         Boolean allowRepeatedSend,
         Boolean headless,
+        Boolean openBrowserOnlyForTasks,
         String loginExpiryNotificationEmail,
         String smtpHost,
         Integer smtpPort,
@@ -25,6 +26,8 @@ public record RuntimeSettingsEntity(
         allowRepeatedSend = Boolean.TRUE.equals(allowRepeatedSend);
         // 兼容旧版 runtime-settings.json；默认使用有头模式，由 Xvfb 提供虚拟显示环境。
         headless = Boolean.TRUE.equals(headless);
+        // 兼容旧版 runtime-settings.json：默认保持浏览器常驻。
+        openBrowserOnlyForTasks = Boolean.TRUE.equals(openBrowserOnlyForTasks);
         loginExpiryNotificationEmail = loginExpiryNotificationEmail == null ? "" : loginExpiryNotificationEmail.trim();
         smtpHost = smtpHost == null ? "" : smtpHost.trim();
         smtpPort = smtpPort == null || smtpPort < 1 || smtpPort > 65535 ? 587 : smtpPort;

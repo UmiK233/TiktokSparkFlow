@@ -84,19 +84,19 @@ class LoginServiceImplTest {
                 LoginStatus.LOGIN_REQUIRED,
                 "data:image/png;base64,test",
                 "请使用抖音 App 扫码登录");
-        when(browserRuntime.<LoginQrVO>execute(any())).thenReturn(expected);
+        when(browserRuntime.<LoginQrVO>executeForLogin(any())).thenReturn(expected);
         LoginService service = service(browserRuntime, new SingleUserProfileGuard());
 
         LoginQrVO result = service.qr();
 
         assertEquals(expected, result);
-        verify(browserRuntime).execute(any());
+        verify(browserRuntime).executeForLogin(any());
     }
 
     @Test
     void qrDoesNotRejectWhenProfileLockIsHeld() {
         BrowserRuntime browserRuntime = mock(BrowserRuntime.class);
-        when(browserRuntime.<LoginQrVO>execute(any())).thenReturn(new LoginQrVO(
+        when(browserRuntime.<LoginQrVO>executeForLogin(any())).thenReturn(new LoginQrVO(
                 LoginStatus.LOGIN_REQUIRED, "data:image/png;base64,test", "请使用抖音 App 扫码登录"));
         SingleUserProfileGuard profileGuard = new SingleUserProfileGuard();
         LoginService service = service(browserRuntime, profileGuard);
@@ -110,7 +110,7 @@ class LoginServiceImplTest {
     @Test
     void loginDoesNotBlockAndReturnsCurrentQrStatus() {
         BrowserRuntime browserRuntime = mock(BrowserRuntime.class);
-        when(browserRuntime.<LoginQrVO>execute(any())).thenReturn(new LoginQrVO(
+        when(browserRuntime.<LoginQrVO>executeForLogin(any())).thenReturn(new LoginQrVO(
                 LoginStatus.LOGIN_REQUIRED, "data:image/png;base64,test", "请使用抖音 App 扫码登录"));
         LoginService service = service(browserRuntime, new SingleUserProfileGuard());
 
@@ -118,7 +118,7 @@ class LoginServiceImplTest {
 
         assertEquals(LoginStatus.LOGIN_REQUIRED, result.status());
         assertEquals("请使用抖音 App 扫码登录", result.detail());
-        verify(browserRuntime).execute(any());
+        verify(browserRuntime).executeForLogin(any());
     }
 
     @Test

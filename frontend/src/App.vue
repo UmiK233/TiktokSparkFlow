@@ -46,6 +46,7 @@ const runtimeSettings = ref({
   sendMessage: true,
   allowRepeatedSend: false,
   headless: false,
+  openBrowserOnlyForTasks: false,
   loginExpiryNotificationEmail: '',
   smtpHost: '',
   smtpPort: 587,
@@ -644,6 +645,10 @@ onBeforeUnmount(() => {
             <el-form-item label="浏览器模式">
               <el-switch v-model="runtimeSettings.headless" active-text="无头运行" inactive-text="有头运行" />
               <div class="form-hint">默认使用有头模式；从有头切换到无头会导致登录失效，需要重新扫码。</div>
+            </el-form-item>
+            <el-form-item label="浏览器生命周期">
+              <el-switch v-model="runtimeSettings.openBrowserOnlyForTasks" active-text="仅执行任务时打开" inactive-text="常驻浏览器" />
+              <div class="form-hint">仅执行任务时打开会在发送任务结束后关闭 Chromium；查看登录状态、扫码和同步好友时也会按需启动并在操作完成后关闭。切换后立即生效。</div>
             </el-form-item>
             <el-form-item label="登录失效提醒邮箱">
               <el-input v-model="runtimeSettings.loginExpiryNotificationEmail" placeholder="name@example.com" maxlength="254" />

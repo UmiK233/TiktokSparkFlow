@@ -35,6 +35,9 @@ public class RuntimeSettingsServiceImpl implements RuntimeSettingsService {
         boolean previousHeadless = mapper.load()
                 .map(existing -> Boolean.TRUE.equals(existing.headless()))
                 .orElse(false);
+        boolean previousOpenBrowserOnlyForTasks = mapper.load()
+                .map(existing -> Boolean.TRUE.equals(existing.openBrowserOnlyForTasks()))
+                .orElse(false);
         String scheduleTime = normalizeTime(settings.scheduleTime());
         String message = settings.message() == null ? "" : settings.message().trim();
         String notificationEmail = settings.loginExpiryNotificationEmail() == null
@@ -44,18 +47,19 @@ public class RuntimeSettingsServiceImpl implements RuntimeSettingsService {
         }
         RuntimeSettingsEntity saved = mapper.save(new RuntimeSettingsEntity(
                 settings.autoSendEnabled(), scheduleTime, message, settings.sendMessage(),
-                settings.allowRepeatedSend(), settings.headless(), notificationEmail,
+                settings.allowRepeatedSend(), settings.headless(), settings.openBrowserOnlyForTasks(), notificationEmail,
                 settings.smtpHost(), settings.smtpPort(), settings.smtpUsername(), settings.smtpPassword(),
                 settings.smtpFromEmail(), settings.smtpStarttls(), settings.loginExpiryEmailSubject(),
                 settings.loginExpiryEmailContent()));
-        if (previousHeadless != Boolean.TRUE.equals(saved.headless())) {
+        if (previousHeadless != Boolean.TRUE.equals(saved.headless())
+                || previousOpenBrowserOnlyForTasks != Boolean.TRUE.equals(saved.openBrowserOnlyForTasks())) {
             eventPublisher.publishEvent(new BrowserSettingsChangedEvent());
         }
         return toVO(saved);
     }
 
     private RuntimeSettingsEntity defaultSettings() {
-        return new RuntimeSettingsEntity(true, "00:01", "🔥", true, false, false, "",
+        return new RuntimeSettingsEntity(true, "00:01", "🔥", true, false, false, false, "",
                 "", 587, "", "", "", true,
                 "TiktokSparkFlow：抖音登录已失效",
                 "自动任务检测到抖音登录已失效。为避免自动续火花失效，请尽快打开 TiktokSparkFlow 进行登录。");
@@ -72,7 +76,8 @@ public class RuntimeSettingsServiceImpl implements RuntimeSettingsService {
     private RuntimeSettingsVO toVO(RuntimeSettingsEntity settings) {
         return new RuntimeSettingsVO(settings.autoSendEnabled(), settings.scheduleTime(),
                 settings.message(), settings.sendMessage(), Boolean.TRUE.equals(settings.allowRepeatedSend()),
-                Boolean.TRUE.equals(settings.headless()), settings.loginExpiryNotificationEmail(),
+                Boolean.TRUE.equals(settings.headless()), Boolean.TRUE.equals(settings.openBrowserOnlyForTasks()),
+                settings.loginExpiryNotificationEmail(),
                 settings.smtpHost(), settings.smtpPort(), settings.smtpUsername(), settings.smtpPassword(),
                 settings.smtpFromEmail(), Boolean.TRUE.equals(settings.smtpStarttls()),
                 settings.loginExpiryEmailSubject(), settings.loginExpiryEmailContent());

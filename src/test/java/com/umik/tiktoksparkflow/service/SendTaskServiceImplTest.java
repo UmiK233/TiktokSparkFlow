@@ -28,9 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class SendTaskServiceImplTest {
@@ -41,7 +41,7 @@ class SendTaskServiceImplTest {
         SendTaskMapper taskMapper = mock(SendTaskMapper.class);
         SendHistoryMapper historyMapper = mock(SendHistoryMapper.class);
         com.umik.tiktoksparkflow.service.RuntimeSettingsService runtimeSettingsService = mock(com.umik.tiktoksparkflow.service.RuntimeSettingsService.class);
-        when(runtimeSettingsService.get()).thenReturn(new RuntimeSettingsVO(false, "00:00", "续火花", true, false, true,
+        when(runtimeSettingsService.get()).thenReturn(new RuntimeSettingsVO(false, "00:00", "续火花", true, false, true, false,
                 "", "", 587, "", "", "", true, "subject", "content"));
         when(taskMapper.loadAll()).thenReturn(List.of());
         when(selectionMapper.load()).thenReturn(new FriendSelectionEntity(List.of("星火", "南.")));
@@ -59,7 +59,7 @@ class SendTaskServiceImplTest {
             assertEquals(2, completed.skipped());
             assertEquals(SendTaskItemStatus.SKIPPED_ALREADY_SENT,
                     completed.results().get(0).status());
-            verifyNoInteractions(browserRuntime);
+            verify(browserRuntime, never()).execute(any());
         } finally {
             service.destroy();
         }
@@ -72,7 +72,7 @@ class SendTaskServiceImplTest {
         SendTaskMapper taskMapper = mock(SendTaskMapper.class);
         SendHistoryMapper historyMapper = mock(SendHistoryMapper.class);
         com.umik.tiktoksparkflow.service.RuntimeSettingsService runtimeSettingsService = mock(com.umik.tiktoksparkflow.service.RuntimeSettingsService.class);
-        when(runtimeSettingsService.get()).thenReturn(new RuntimeSettingsVO(false, "00:00", "续火花", true, false, true,
+        when(runtimeSettingsService.get()).thenReturn(new RuntimeSettingsVO(false, "00:00", "续火花", true, false, true, false,
                 "", "", 587, "", "", "", true, "subject", "content"));
         when(taskMapper.loadAll()).thenReturn(List.of());
         when(selectionMapper.load()).thenReturn(new FriendSelectionEntity(List.of("星火")));
@@ -111,7 +111,7 @@ class SendTaskServiceImplTest {
         SendTaskMapper taskMapper = mock(SendTaskMapper.class);
         SendHistoryMapper historyMapper = mock(SendHistoryMapper.class);
         com.umik.tiktoksparkflow.service.RuntimeSettingsService runtimeSettingsService = mock(com.umik.tiktoksparkflow.service.RuntimeSettingsService.class);
-        when(runtimeSettingsService.get()).thenReturn(new RuntimeSettingsVO(false, "00:00", "续火花", true, false, true,
+        when(runtimeSettingsService.get()).thenReturn(new RuntimeSettingsVO(false, "00:00", "续火花", true, false, true, false,
                 "", "", 587, "", "", "", true, "subject", "content"));
         SendTaskEntity source = new SendTaskEntity(
                 "source-task",
@@ -143,7 +143,7 @@ class SendTaskServiceImplTest {
             assertEquals(List.of("失败好友"), retried.targets());
             assertEquals(1, completed.total());
             assertEquals(1, completed.skipped());
-            verifyNoInteractions(browserRuntime);
+            verify(browserRuntime, never()).execute(any());
         } finally {
             service.destroy();
         }

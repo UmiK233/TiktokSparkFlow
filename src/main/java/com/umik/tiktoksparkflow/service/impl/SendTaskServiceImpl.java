@@ -188,6 +188,14 @@ public class SendTaskServiceImpl implements SendTaskService, DisposableBean {
     }
 
     private void runTask(String taskId) {
+        // Always take a task lease. In on-demand mode this is the strict boundary that prevents
+        // Chromium from being closed between individual targets; in persistent mode it is a no-op.
+        try (BrowserRuntime.TaskSession ignored = browserRuntime.retainForTask()) {
+            runTaskWithBrowserSession(taskId);
+        }
+    }
+
+    private void runTaskWithBrowserSession(String taskId) {
         TaskState state = requireTask(taskId);
         markRunning(state);
 

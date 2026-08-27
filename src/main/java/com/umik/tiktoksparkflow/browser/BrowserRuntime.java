@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
@@ -28,6 +29,10 @@ public class BrowserRuntime implements DisposableBean {
         return thread;
     });
     private BrowserSession session;
+    /** Accessed only by the browser executor. Keeps one session across a complete send task. */
+    private int taskSessionLeases;
+    /** Keeps Chromium alive while the user is scanning an interactive login QR code. */
+    private boolean loginSessionRetained;
 
     public BrowserRuntime(TiktokSenderConfiguration configuration, RuntimeSettingsMapper runtimeSettingsMapper) {
         this.configuration = configuration;
@@ -35,7 +40,15 @@ public class BrowserRuntime implements DisposableBean {
     }
 
     public <T> T execute(Function<Page, T> operation) {
-        Future<T> future = browserThread.submit(() -> operation.apply(currentPage()));
+        Future<T> future = browserThread.submit(() -> {
+            try {
+                return operation.apply(currentPage());
+            } finally {
+                if (shouldCloseAfterOperation()) {
+                    closeSession();
+                }
+            }
+        });
         try {
             return future.get();
         } catch (InterruptedException error) {
@@ -50,9 +63,88 @@ public class BrowserRuntime implements DisposableBean {
         }
     }
 
+    /** Starts or reuses the short-lived session needed for QR-code login. */
+    public <T> T executeForLogin(Function<Page, T> operation) {
+        Future<T> future = browserThread.submit(() -> {
+            loginSessionRetained = true;
+            return operation.apply(currentPage());
+        });
+        try {
+            return future.get();
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("获取登录二维码时线程被中断", error);
+        } catch (ExecutionException error) {
+            throw new IllegalStateException("获取登录二维码失败", error.getCause());
+        }
+    }
+
+    /** Releases a QR-login session after login succeeds or the QR request fails. */
+    public void releaseLoginSession() {
+        waitFor(browserThread.submit(() -> {
+            loginSessionRetained = false;
+            if (shouldCloseAfterOperation()) {
+                closeSession();
+            }
+        }), "释放登录浏览器会话失败");
+    }
+
+    /**
+     * Retains the browser only for one send task when "open only for tasks" is enabled.
+     * The lease does not open Chromium by itself; the first operation in the task does.
+     */
+    public TaskSession retainForTask() {
+        waitFor(browserThread.submit(() -> taskSessionLeases++), "保留浏览器任务会话失败");
+        return new TaskSession();
+    }
+
+    private boolean openBrowserOnlyForTasks() {
+        return runtimeSettingsMapper.load()
+                .map(settings -> Boolean.TRUE.equals(settings.openBrowserOnlyForTasks()))
+                .orElse(false);
+    }
+
+    private void releaseTaskSession() {
+        waitFor(browserThread.submit(() -> {
+            taskSessionLeases = Math.max(0, taskSessionLeases - 1);
+            if (shouldCloseAfterOperation()) {
+                closeSession();
+            }
+        }), "释放浏览器任务会话失败");
+    }
+
+    private boolean shouldCloseAfterOperation() {
+        return openBrowserOnlyForTasks() && taskSessionLeases == 0 && !loginSessionRetained;
+    }
+
+    private void waitFor(Future<?> future, String errorMessage) {
+        try {
+            future.get();
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(errorMessage, error);
+        } catch (ExecutionException error) {
+            throw new IllegalStateException(errorMessage, error.getCause());
+        }
+    }
+
+    public final class TaskSession implements AutoCloseable {
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        @Override
+        public void close() {
+            if (closed.compareAndSet(false, true)) {
+                releaseTaskSession();
+            }
+        }
+    }
+
     /** 关闭当前持久化浏览器会话，供退出登录等需要独占浏览器资料的操作调用。 */
     public void closeCurrentSession() {
-        Future<?> future = browserThread.submit(this::closeSession);
+        Future<?> future = browserThread.submit(() -> {
+            loginSessionRetained = false;
+            closeSession();
+        });
         try {
             future.get();
         } catch (InterruptedException error) {
@@ -76,7 +168,10 @@ public class BrowserRuntime implements DisposableBean {
 
     @EventListener
     public void resetSessionAfterSettingsChange(BrowserSettingsChangedEvent ignored) {
-        Future<?> future = browserThread.submit(this::closeSession);
+        Future<?> future = browserThread.submit(() -> {
+            loginSessionRetained = false;
+            closeSession();
+        });
         try {
             future.get();
         } catch (InterruptedException error) {
@@ -101,7 +196,10 @@ public class BrowserRuntime implements DisposableBean {
 
     @Override
     public void destroy() {
-        Future<?> future = browserThread.submit(this::closeSession);
+        Future<?> future = browserThread.submit(() -> {
+            loginSessionRetained = false;
+            closeSession();
+        });
         try {
             future.get();
         } catch (InterruptedException error) {

@@ -7,6 +7,7 @@ public record RuntimeSettingsVO(
         boolean sendMessage,
         boolean allowRepeatedSend,
         boolean headless,
+        boolean openBrowserOnlyForTasks,
         String loginExpiryNotificationEmail,
         String smtpHost,
         int smtpPort,

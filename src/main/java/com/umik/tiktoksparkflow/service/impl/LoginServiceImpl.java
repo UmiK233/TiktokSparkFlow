@@ -50,6 +50,7 @@ public class LoginServiceImpl implements LoginService {
         try (SingleUserProfileGuard.Lease ignored = profileGuard.acquire()) {
             boolean loggedIn = browserRuntime.execute(page -> client(page).checkAuthentication());
             if (loggedIn) {
+                browserRuntime.releaseLoginSession();
                 loginExpiryEmailNotifier.markLoginRecovered();
                 return result(LoginStatus.LOGGED_IN, "浏览器页面已确认登录有效");
             }
@@ -63,7 +64,16 @@ public class LoginServiceImpl implements LoginService {
         // BrowserRuntime 会把全部 Playwright 操作串行放到同一线程执行。
         // 二维码读取不再抢占 Profile 锁，避免状态检查或发送任务短暂持锁时
         // 连续返回 BUSY，前端只需等待当前页面操作结束即可获取二维码。
-        return browserRuntime.execute(page -> client(page).captureLoginQr());
+        try {
+            LoginQrVO result = browserRuntime.executeForLogin(page -> client(page).captureLoginQr());
+            if (result.status() == LoginStatus.LOGGED_IN) {
+                browserRuntime.releaseLoginSession();
+            }
+            return result;
+        } catch (RuntimeException error) {
+            browserRuntime.releaseLoginSession();
+            throw error;
+        }
     }
 
     @Override

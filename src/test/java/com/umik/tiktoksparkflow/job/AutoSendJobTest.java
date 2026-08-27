@@ -58,7 +58,7 @@ class AutoSendJobTest {
 
     private RuntimeSettingsService settings(boolean enabled, String message, boolean sendMessage) {
         RuntimeSettingsService service = mock(RuntimeSettingsService.class);
-        when(service.get()).thenReturn(new RuntimeSettingsVO(enabled, "00:02", message, sendMessage, false, true,
+        when(service.get()).thenReturn(new RuntimeSettingsVO(enabled, "00:02", message, sendMessage, false, true, false,
                 "", "", 587, "", "", "", true, "subject", "content"));
         return service;
     }
