@@ -26,8 +26,8 @@
 
 ### 前置条件
 
-- Docker Desktop（含 Docker Compose）
-- Java 17 和 Maven Wrapper 可用（用于先构建后端 JAR）
+- Docker（含 Docker Compose）
+- Java 17 和 Maven 可用（用于先构建后端 JAR）
 
 ### 启动
 
@@ -49,8 +49,8 @@ docker compose up -d --build
 
 启动完成后访问：
 
-| 地址 | 用途 |
-| --- | --- |
+| 地址             | 用途         |
+| ---------------- | ------------ |
 | http://localhost | Web 管理界面 |
 
 首次使用时，在管理界面扫描二维码登录；随后同步好友、勾选续火花名单，并按需创建发送任务或设置每日计划。
@@ -66,20 +66,45 @@ docker compose logs -f
 ```bash
 docker compose down
 ```
+<br>
 
-## 本地开发
+## 使用流程
+
+1. 打开 Web 界面，使用抖音 App 扫码登录。
+2. 在“好友管理”中同步好友列表并保存续火花名单。
+3. 需要立即执行时，创建批量发送任务，或对单个好友单独发送。
+4. 在“任务中心”和“发送历史”中核对执行结果。
+5. 如需自动执行，在“运行配置”中启用每日任务、设置时间和消息内容。
+
+默认使用 **有头浏览器模式**，可在“浏览器监控”中观察扫码和操作过程。切换到无头模式会关闭当前浏览器会话，通常需要重新扫码登录。
+
+<br>
+
+## 常见问题
+
+### Docker 构建时找不到 JAR
+
+Dockerfile 会复制 `target/*.jar`，如无构建的jar请先执行 `./mvnw clean package -DskipTests`（Windows 使用 `./mvnw.cmd`），再运行 `docker compose up --build`。
+
+### 浏览器无法启动或提示 Profile 被占用
+
+请确认没有其他本地进程或容器正在使用同一个 `data/single-user-profile/`。停止旧进程后重试；应用会尝试清理部分遗留的 Chromium 临时锁。
+**推荐使用`docker compose up -d --build --force-recreate backend`对后端进行重置**  
+
+<br>
+
+## 本地开发与测试
 
 ### 后端
-为控制发布JAR的体积，项目默认不打包 Playwright 的完整 driver bundle  Docker 构建时仅下载并使用当前平台所需的
-driver  
-本地开发运行时请使用 `-Plocal-playwright` 启用完整 driver bundle，避免出现 driver 缺失错误  
-Windows 下执行：
+为控制发布JAR的体积，项目默认不打包 Playwright 的完整 `driver bundle` ，Docker 构建时仅下载并使用当前平台所需的`driver`
+本地开发运行时请使用 `-Plocal-playwright` 启用完整 `driver bundle`，避免出现 driver 缺失错误 
+Windows 下运行请执行：
 
 ```powershell
 .\mvnw.cmd spring-boot:run -Plocal-playwright
 ```
 
-macOS / Linux 下执行：
+macOS / Linux 下运行请执行：
 
 ```bash
 ./mvnw spring-boot:run -Plocal-playwright
@@ -89,7 +114,7 @@ macOS / Linux 下执行：
 ./mvnw clean package -DskipTests
 ```
 
-后端默认运行在 `http://localhost:8080`。在有头模式下可在docker-compose.yml中暴露5900端口并通过VNC链接到5900端口查看调试
+后端默认运行在 `http://localhost:8080`。
 
 ### 前端
 
@@ -108,15 +133,7 @@ npm run dev
 - Docker 部署时，Playwright 运行在 Xvfb 虚拟显示器中；可通过 Web 界面的“浏览器监控”使用 noVNC 查看和操作画面。
 - 本地开发时，Playwright 会直接打开本机 Chromium 窗口；请直接查看该窗口。“浏览器监控”依赖 Docker 中的 noVNC 服务，本地 Vite 开发服务器不提供此功能。
 
-## 使用流程
-
-1. 打开 Web 界面，使用抖音 App 扫码登录。
-2. 在“好友管理”中同步好友列表并保存续火花名单。
-3. 需要立即执行时，创建批量发送任务，或对单个好友单独发送。
-4. 在“任务中心”和“发送历史”中核对执行结果。
-5. 如需自动执行，在“运行配置”中启用每日任务、设置时间和消息内容。
-
-默认使用 **有头浏览器模式**，可在“浏览器监控”中观察扫码和操作过程。切换到无头模式会关闭当前浏览器会话，通常需要重新扫码登录。
+<br>
 
 ## 数据与配置
 
@@ -135,13 +152,3 @@ npm run dev
 请勿提交、公开或与他人共享 `data/single-user-profile/`：其中可能包含登录 Cookie 和会话信息。退出登录会清理本地浏览器资料；如需完整重置，也可在**停止服务后**自行备份或移除 `data/` 目录。
 
 主要静态配置位于 [application.yaml](src/main/resources/application.yaml)，包括数据目录、超时时间、好友同步超时和批量发送间隔。应用默认使用 `GMT+8` 时区；每日任务每 15 秒检查一次，在设定分钟内只会触发一次。
-
-## 常见问题
-
-### Docker 构建时找不到 JAR
-
-Dockerfile 会复制 `target/*.jar`，如无构建的jar请先执行 `./mvnw clean package -DskipTests`（Windows 使用 `./mvnw.cmd`），再运行 `docker compose up --build`。
-
-### 浏览器无法启动或提示 Profile 被占用
-
-请确认没有其他本地进程或容器正在使用同一个 `data/single-user-profile/`。停止旧进程后重试；应用会尝试清理部分遗留的 Chromium 临时锁。
